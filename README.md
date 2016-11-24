@@ -2,6 +2,10 @@
 
 Project in development phase 
 
+in this branch, test is done with ANE-backgroundfetch, branch performfetch-to-as, commit de5168514f5b9eb0ffc2a7ef9eb335def9c79b12
+The backgroundfetch works
+
+
 xdrip/xbridge reader for iOS devices
 
 * Initial and subsequent Calibration
