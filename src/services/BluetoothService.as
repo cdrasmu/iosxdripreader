@@ -91,6 +91,7 @@ package services
 		private static var initialStart:Boolean = true;
 		
 		private static var scanTimer:Timer;
+		private static var dexcomG5RescanTimer:Timer;
 		private static const MAX_SCAN_TIME_IN_SECONDS:int = 15;
 		private static var discoverServiceOrCharacteristicTimer:Timer;
 		private static const DISCOVER_SERVICES_OR_CHARACTERISTICS_RETRY_TIME_IN_SECONDS:int = 1;
@@ -122,7 +123,7 @@ package services
 		private static var waitingForPeripheralCharacteristicsDiscovered:Boolean = false;
 		private static var waitingForServicesDiscovered:Boolean = false;
 		
-		private static const DexcomG5:Boolean = true;
+		public static const DexcomG5:Boolean = true;
 		private static var authRequest:AuthRequestTxMessage = null;
 		private static var authStatus:AuthStatusRxMessage = null;
 		private static var lastOnReadCode:int = 0xff;
@@ -369,6 +370,13 @@ package services
 				myTrace("passing in central_peripheralDiscoveredHandler. Peripheral name = " + event.peripheral.name);
 			}
 			
+			if (DexcomG5) {
+				if (dexcomG5RescanTimer != null) {
+					if (dexcomG5RescanTimer.running) {
+						dexcomG5RescanTimer.stop();
+					}
+				}
+			}
 			// event.peripheral will contain a Peripheral object with information about the Peripheral
 			if (
 				(!DexcomG5 && 
@@ -436,7 +444,7 @@ package services
 			}
 			reconnectAttemptTimeStamp = 0;
 			
-			if (!awaitingConnect) {
+			if (!awaitingConnect || !DexcomG5) {
 				myTrace("in central_peripheralConnectHandler but awaitingConnect = false, will disconnect");
 				//activeBluetoothPeripheral = null;
 				BluetoothLE.service.centralManager.disconnect(event.peripheral);
@@ -444,7 +452,7 @@ package services
 			} 
 			
 			awaitingConnect = false;
-			if (DexcomG5) {
+			if (!DexcomG5) {
 				if ((new Date()).valueOf() - connectionAttemptTimeStamp > maxTimeBetweenConnectAttemptAndConnectSuccess * 1000) { //not waiting more than 3 seconds between device discovery and connection success
 					myTrace("passing in central_peripheralConnectHandler but time between connect attempt and connect success is more than " + maxTimeBetweenConnectAttemptAndConnectSuccess + " seconds. Will disconnect");
 					//activeBluetoothPeripheral = null;
@@ -523,6 +531,13 @@ package services
 				}
 				connectionAttemptCheckTimer = null;
 			}
+			/*if (DexcomG5) {
+			myTrace("it's a dexcom g5, not going to retry to connect or anything like that, just start scanning within 10 seconds");//that 10 seconds would need to be adapted if the timer is adpated in following line
+			dexcomG5RescanTimer = new Timer(10 * 1000, 1);
+			dexcomG5RescanTimer.addEventListener(TimerEvent.TIMER, dexcomG5Resscan);
+			dexcomG5RescanTimer.start();
+			return;
+			}*/
 			
 			//setting to 0 because i had a case where the maximum was reached after a few re and disconnects
 			amountOfDiscoverServicesOrCharacteristicsAttempt = 0;
@@ -846,7 +861,6 @@ package services
 		
 		private static function peripheral_characteristic_subscribeHandler(event:CharacteristicEvent):void {
 			myTrace("peripheral_characteristic_subscribeHandler: " + HM10Attributes.instance.UUIDMap[event.characteristic.uuid.toUpperCase()]);
-			myTrace("peripheral_characteristic_subscribeHandler: " + event.characteristic.uuid);
 			dispatchInformation("successfully_subscribed_to_characteristics");
 			if (DexcomG5) {
 				if (event.characteristic.uuid.toUpperCase() == HM10Attributes.G5_Control_Characteristic_UUID.toUpperCase()) {
@@ -976,7 +990,7 @@ package services
 						sensor_battery_level = 216; //no message, just system status "OK"
 					}
 					
-					if ((new Date()).valueOf() - new Number(CommonSettings.COMMON_SETTING_LASTUPDATE_TRANSMITTER_BATTERY_VOLTAGE_INMS) > BluetoothService.BATTERY_READ_PERIOD_MS) {
+					if ((new Date()).valueOf() - new Number(CommonSettings.getCommonSetting(CommonSettings.COMMON_SETTING_G5_BATTERY_MARKER)) > BluetoothService.BATTERY_READ_PERIOD_MS) {
 						doBatteryInfoRequestMessage(characteristic);
 					} else {
 						doDisconnectMessageG5(characteristic);
@@ -1181,6 +1195,10 @@ package services
 			} else {
 				myTrace("getSensorData(): writing desccrptor");
 			}
+		}
+		
+		private static function dexcomG5Resscan(event:TimerEvent):void {
+			startScanning();
 		}
 	}
 	

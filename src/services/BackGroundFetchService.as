@@ -180,7 +180,7 @@ package services
 		
 		private static function performFetch(event:BackgroundFetchEvent):void {
 			myTrace("performFetch");
-			if (!HomeView.peripheralConnected && !ModelLocator.isInForeground) {
+			if (!HomeView.peripheralConnected && !ModelLocator.isInForeground && !BluetoothService.DexcomG5) {
 				myTrace("peripheral not connected, calling bluetoothservice.tryreconnect");
 				attemptingBluetoothReconnect = true;
 				BackgroundFetch.startReconnectTimer(20);
